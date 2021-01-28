@@ -65,7 +65,9 @@ async fn main() -> tide::Result<()> {
             // found for struct `tide::Response` in the current scope".
             // but it looks just like an example here:
             // https://blog.yoshuawuyts.com/tide/
-            tide::Response::new(200).body_json(&dog).unwrap();
+            let res = tide::Response::new(200);
+            res.set_body(Body::from_json(&dog)?);
+            res
         });
 
     app.listen("127.0.0.1:8080").await?;
