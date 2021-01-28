@@ -55,17 +55,13 @@ async fn main() -> tide::Result<()> {
         });
 
     app.at("/dog")
-        // Error on next line is "expected struct `tide::Response`,
-        // found enum `std::result::Result`".
         .post(|req: Request<State>| async move {
-            let dog: Dog = req.body_json().await.unwrap();
+            let dog: Dog = req.body_json().await?;
             let mut dog_map = &req.state().dog_map;
             dog_map.insert(dog.id, dog);
             let res = tide::Response::new(200);
-            // Error on next line is "cannot use the `?` operator
-            // in an async block that returns `tide::Response`"
             res.set_body(Body::from_json(&dog)?);
-            res
+            Ok(res)
         });
 
     app.listen("127.0.0.1:8080").await?;
