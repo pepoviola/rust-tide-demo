@@ -55,17 +55,15 @@ async fn main() -> tide::Result<()> {
         });
 
     app.at("/dog")
-        // The next line gives the error "expected `()`,
+        // Error on next line is "expected struct `tide::Response`,
         // found enum `std::result::Result`".
         .post(|req: Request<State>| async move {
             let dog: Dog = req.body_json().await.unwrap();
             let mut dog_map = &req.state().dog_map;
             dog_map.insert(dog.id, dog);
-            // The next line gives the error "no method named `body_json`
-            // found for struct `tide::Response` in the current scope".
-            // but it looks just like an example here:
-            // https://blog.yoshuawuyts.com/tide/
             let res = tide::Response::new(200);
+            // Error on next line is "cannot use the `?` operator
+            // in an async block that returns `tide::Response`"
             res.set_body(Body::from_json(&dog)?);
             res
         });
