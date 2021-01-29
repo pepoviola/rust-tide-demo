@@ -1,6 +1,6 @@
-//use parking_lot::RwLock;
+use parking_lot::RwLock;
 use std::collections::HashMap;
-//use std::sync::Arc;
+use std::sync::Arc;
 use tide::{Body, Request, Response};
 use tide::prelude::*;
 use uuid::Uuid;
@@ -23,9 +23,9 @@ struct NewDog {
 //type DogMap = Arc<RwLock<HashMap<String, Dog>>>;
 type DogMap = HashMap<String, Dog>;
 
-#[derive(Clone,Debug)]
+#[derive(Clone)]
 struct State {
-    dog_map: DogMap
+    dog_map: Arc<RwLock<DogMap>>
 }
 
 #[async_std::main]
@@ -40,14 +40,12 @@ async fn main() -> tide::Result<()> {
     };
     dog_map.insert(id, dog);
 
-    //let state = State { dog_map: Arc::new(RwLock::new(dog_map)) };
-    let state = State { dog_map };
+    let state = State { dog_map: Arc::new(RwLock::new(dog_map)) };
     let mut app = tide::with_state(state);
 
     app.at("/dog")
         .get(|req: Request<State>| async move {
-            //let dog_map = req.state().dog_map.read().await;
-            let dog_map = &req.state().dog_map;
+            let dog_map = &req.state().dog_map.read().await;
             let dogs: Vec<Dog> = dog_map.values().cloned().collect();
             let mut res = Response::new(200);
             res.set_body(Body::from_json(&dogs)?);
@@ -57,9 +55,10 @@ async fn main() -> tide::Result<()> {
     app.at("/dog")
         .post(|mut req: Request<State>| async move {
             let dog: Dog = req.body_json().await?;
-            let mut dog_map = req.state().dog_map;
-            dog_map.insert(dog.id, dog);
-            let res = tide::Response::new(200);
+            let new_dog = Dog {..dog};
+            let mut dog_map = req.state().dog_map.write().await;
+            dog_map.insert(new_dog.id.clone(), dog);
+            let mut res = tide::Response::new(201);
             res.set_body(Body::from_json(&dog)?);
             Ok(res)
         });
