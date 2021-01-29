@@ -1,6 +1,6 @@
-//use parking_lot::RwLock;
+use parking_lot::RwLock;
 use std::collections::HashMap;
-//use std::sync::Arc;
+use std::sync::Arc;
 use tide::{Body, Request, Response};
 use tide::prelude::*;
 use uuid::Uuid;
@@ -9,24 +9,16 @@ use uuid::Uuid;
 // call the "cloned" method in the "get_dogs" route.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Dog {
-    id: String,
+    id: Option<String>,
     breed: String,
     name: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct NewDog {
-    breed: String,
-    name: String,
-}
-
-//type DogMap = Arc<RwLock<HashMap<String, Dog>>>;
 type DogMap = HashMap<String, Dog>;
 
 #[derive(Clone)]
 struct State {
-    //dog_map: Arc<RwLock<DogMap>>
-    dog_map: DogMap
+    dog_map: Arc<RwLock<DogMap>>
 }
 
 #[async_std::main]
@@ -35,14 +27,13 @@ async fn main() -> tide::Result<()> {
 
     let id = Uuid::new_v4().to_string();
     let dog = Dog {
-        id: id.clone(),
+        id: Some(id.clone()),
         name: "Comet".to_string(),
         breed: "Whippet".to_string(),
     };
     dog_map.insert(id, dog);
 
-    //let state = State { dog_map: Arc::new(RwLock::new(dog_map)) };
-    let state = State { dog_map };
+    let state = State { dog_map: Arc::new(RwLock::new(dog_map)) };
     let mut app = tide::with_state(state);
 
     // Can test this with:
@@ -50,7 +41,7 @@ async fn main() -> tide::Result<()> {
     app.at("/dog")
         .get(|req: Request<State>| async move {
             println!("get entered");
-            let dog_map = &req.state().dog_map;
+            let dog_map = &req.state().clone().dog_map.read().await;
             let dogs: Vec<Dog> = dog_map.values().cloned().collect();
             let mut res = Response::new(200);
             res.set_body(Body::from_json(&dogs)?);
@@ -62,9 +53,11 @@ async fn main() -> tide::Result<()> {
     app.at("/dog")
         .post(|mut req: Request<State>| async move {
             println!("post entered"); // This is output.
-            let dog: Dog = req.body_json().await?;
+            let mut dog: Dog = req.body_json().await?;
+            let id = Uuid::new_v4().to_string();
+            dog.id = Some(id);
             println!("post got dog"); // This is not output.
-            let mut dog_map = req.state().dog_map.clone();
+            let mut dog_map = &req.state().clone().dog_map.write().await;
             dog_map.insert( dog.id.clone(), dog.clone());
             let mut res = tide::Response::new(200);
             res.set_body(Body::from_json(&dog)?);
