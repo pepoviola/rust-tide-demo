@@ -1,6 +1,6 @@
-use parking_lot::RwLock;
+// use parking_lot::RwLock;
 use std::collections::HashMap;
-use std::sync::Arc;
+use async_std::sync::{Arc, RwLock};
 use tide::{Body, Request, Response};
 use tide::prelude::*;
 use uuid::Uuid;
@@ -9,6 +9,7 @@ use uuid::Uuid;
 // call the "cloned" method in the "get_dogs" route.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct Dog {
+    #[serde(default)]
     id: Option<String>,
     breed: String,
     name: String,
@@ -41,7 +42,7 @@ async fn main() -> tide::Result<()> {
     app.at("/dog")
         .get(|req: Request<State>| async move {
             println!("get entered");
-            let dog_map = &req.state().clone().dog_map.read().await;
+            let dog_map = req.state().dog_map.read().await;
             let dogs: Vec<Dog> = dog_map.values().cloned().collect();
             let mut res = Response::new(200);
             res.set_body(Body::from_json(&dogs)?);
@@ -55,10 +56,10 @@ async fn main() -> tide::Result<()> {
             println!("post entered"); // This is output.
             let mut dog: Dog = req.body_json().await?;
             let id = Uuid::new_v4().to_string();
-            dog.id = Some(id);
+            dog.id = Some(id.clone());
             println!("post got dog"); // This is not output.
-            let mut dog_map = &req.state().clone().dog_map.write().await;
-            dog_map.insert( dog.id.clone(), dog.clone());
+            let mut dog_map = req.state().dog_map.write().await;
+            dog_map.insert( id, dog.clone());
             let mut res = tide::Response::new(200);
             res.set_body(Body::from_json(&dog)?);
             Ok(res)
