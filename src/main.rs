@@ -55,9 +55,9 @@ async fn main() -> tide::Result<()> {
         });
 
     app.at("/dog")
-        .post(|req: Request<State>| async move {
+        .post(|mut req: Request<State>| async move {
             let dog: Dog = req.body_json().await?;
-            let mut dog_map = &req.state().dog_map;
+            let mut dog_map = req.state().dog_map;
             dog_map.insert(dog.id, dog);
             let res = tide::Response::new(200);
             res.set_body(Body::from_json(&dog)?);
